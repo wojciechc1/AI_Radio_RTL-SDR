@@ -1,8 +1,8 @@
 import ctypes
 import os
 
-def load_dll():
-    dll_folder = os.path.abspath("rtl-sdr-64bit-20180506")
+def load_dll(dll_folder_path):
+    dll_folder = os.path.abspath(dll_folder_path)
     dll_path = os.path.join(dll_folder, "librtlsdr.dll")
 
     os.environ['PATH'] = dll_folder + ';' + os.environ['PATH']
