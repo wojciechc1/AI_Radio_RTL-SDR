@@ -16,7 +16,7 @@ def main():
     sdr.gain = 'auto'          # automatyczne wzmocnienie
 
     print("Pobieram próbki...")
-    samples = sdr.read_samples(256*1024)  # 256k próbek
+    samples = sdr.read_samples(10*1024)
 
     print(f"Pobrano {len(samples)} próbek")
     print("Pierwsze 10 próbek (complex64):")
