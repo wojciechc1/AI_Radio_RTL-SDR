@@ -8,6 +8,8 @@ from scipy.signal import decimate
 from scipy.io import wavfile
 import matplotlib.pyplot as plt
 
+import torch
+
 # load dll file
 load_dll("./rtl-sdr-64bit-20180506")
 from rtlsdr import RtlSdr
@@ -18,17 +20,19 @@ class Radio():
         self.sdr.sample_rate = 2.4e6
         # sdr.center_freq = 107.2e6
         # sdr.center_freq = 99.6e6
-        self.sdr.center_freq = 87.5e6
+        self.sdr.center_freq = 89.6e6
 
-        self.sdr.gain = 30
-
+        self.sdr.gain = 20
+        self.is_playing = True
         self.fs_signal = int(self.sdr.sample_rate)
         self.fs_audio = 48000
         self.decimation_factor = self.fs_signal // self.fs_audio
 
+
     def fm_demodulate(self, x):
         y = x[1:] * np.conj(x[:-1])
         return np.angle(y) * 1.0
+
 
     def normalize_audio(self, audio):
         audio = audio - np.mean(audio)
@@ -37,6 +41,7 @@ class Radio():
             return audio
         return (audio / max_val) * 0.8
 
+
     def bandpass_filter(self, samples, fs, cutoff=100e3):
         nyq = fs / 2
         b, a = scipy.signal.butter(5, cutoff / nyq, btype='low')
@@ -44,19 +49,47 @@ class Radio():
 
 
     def play(self):
+        self.is_playing = True
         with sd.OutputStream(samplerate=self.fs_audio, channels=1) as stream:
-            while True:
+            while self.is_playing:
                 samples = self.sdr.read_samples(256*1024)
-                filtered = self.bandpass_filter(samples, self.fs_signal, 100e3)
+                filtered = self.bandpass_filter(samples, self.fs_signal, 75e3)
                 fm_demod = self.fm_demodulate(filtered)
-                #fm_demod = fm_demodulate(samples)
+                #fm_demod = self.fm_demodulate(samples)
                 fm_audio = decimate(fm_demod, self.decimation_factor)
                 fm_audio = self.normalize_audio(fm_audio).astype(np.float32)
-
+                '''
+                input_tensor = torch.from_numpy(fm_audio).unsqueeze(0).unsqueeze(0)
+                with torch.no_grad():
+                    denoised = self.model(input_tensor).squeeze().numpy()  # [N]
+                '''
                 stream.write(fm_audio)
+
+import time
+import threading
 
 
 radio = Radio()
 radio.sdr.center_freq = 98.8e6
-print(radio.sdr.center_freq)
 radio.play()
+
+"""
+def run_radio():
+    radio.play()
+
+for i in range(200):
+    print("---------------------------------------")
+    print("start:", radio.sdr.center_freq / 1e6, "MHz")
+
+    # uruchom radio w osobnym wątku
+    thread = threading.Thread(target=run_radio)
+    thread.start()
+
+    time.sleep(10)  # gra przez 2 sekundy
+
+    # zatrzymaj odtwarzanie
+    radio.is_playing = False
+    thread.join()  # poczekaj aż się zakończy
+
+    print("stop:", radio.sdr.center_freq / 1e6, "MHz")
+    radio.sdr.center_freq += 0.2e6"""
