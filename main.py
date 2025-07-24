@@ -18,10 +18,11 @@ import matplotlib.pyplot as plt
 from rtlsdr import RtlSdr
 
 
+
 def scan_frequencies(start_freq=88e6, stop_freq=108e6, step=100e3, sample_rate=2.4e6, n_samples=2048, gain=40):
     sdr = RtlSdr()
     sdr.sample_rate = sample_rate
-    sdr.gain = 'auto'
+    sdr.gain = 20
 
     freqs = np.arange(start_freq, stop_freq, step)
     powers = []
@@ -53,6 +54,7 @@ def scan_frequencies(start_freq=88e6, stop_freq=108e6, step=100e3, sample_rate=2
     plt.title("Skanowanie pasma FM")
     plt.grid(True)
     plt.show()
+
 
 if __name__ == "__main__":
     scan_frequencies()

@@ -1,5 +1,6 @@
 import numpy as np
 from utils.dll_loader import load_dll
+from utils.prepare_audio import prepare_audio
 import scipy.signal
 import numpy as np
 from scipy.io.wavfile import write
@@ -13,6 +14,16 @@ import torch
 # load dll file
 load_dll("./rtl-sdr-64bit-20180506")
 from rtlsdr import RtlSdr
+
+from model.net import UNet1D
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = UNet1D()
+model.load_state_dict(torch.load("./model/saved_models/trained_model_1.pth", map_location=device))
+model.to(device)
+model.eval()
+
 
 class Radio():
     def __init__(self):
@@ -58,12 +69,17 @@ class Radio():
                 #fm_demod = self.fm_demodulate(samples)
                 fm_audio = decimate(fm_demod, self.decimation_factor)
                 fm_audio = self.normalize_audio(fm_audio).astype(np.float32)
-                '''
-                input_tensor = torch.from_numpy(fm_audio).unsqueeze(0).unsqueeze(0)
+                fm_audio = prepare_audio(fm_audio, target_len=8192)
+
+                input_tensor = torch.from_numpy(fm_audio).unsqueeze(0).unsqueeze(0).to(device)  # shape: [1,1,length]
+                #print(input_tensor.shape)
                 with torch.no_grad():
-                    denoised = self.model(input_tensor).squeeze().numpy()  # [N]
-                '''
-                stream.write(fm_audio)
+                    denoised_tensor = model(input_tensor)  # shape: [1,1,length]
+
+                denoised = denoised_tensor.squeeze().cpu().numpy()  # shape: [length]
+                denoised = denoised.astype(np.float32)
+
+                stream.write(denoised)
 
 import time
 import threading
